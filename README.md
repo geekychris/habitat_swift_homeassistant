@@ -357,16 +357,20 @@ Go to **Dashboard** tab - entities should appear.
 2. Tap **+** button
 3. Enter tab name (e.g., "Living Room", "Bedroom")
 4. Tap **Create**
-5. Tap the tab to select entities
-6. Check entities to include
-7. Use search to filter
+5. Tap the newly created tab to open entity assignment
+6. Check entities to include in this tab
+7. Use search to filter entities
+8. Go back to Dashboard
+9. Select the tab chip to see your entities
+
+**Note**: Entities are assigned per tab. Each tab can have its own set of entities.
 
 #### Filter Dashboard
 
 On Dashboard:
 
-- **All**: Show all selected entities
-- **Tab chips**: Show only entities in that tab
+- **All**: Shows all controllable entities (lights, switches, climate devices)
+- **Tab chips**: Shows only entities assigned to that specific tab
 
 ### Controlling Entities
 
@@ -414,11 +418,19 @@ Toggle between internal/external URLs:
 
 ### Changing App Name
 
-Edit `Info.plist`:
+Edit the Xcode project build settings:
 
-```xml
-<key>CFBundleDisplayName</key>
-<string>YourAppName</string>
+1. Open `SimpleHomeAssistant.xcodeproj` in Xcode
+2. Select the project in the navigator
+3. Select the "SimpleHomeAssistant" target
+4. Go to "Build Settings" tab
+5. Search for "Bundle Display Name"
+6. Change `INFOPLIST_KEY_CFBundleDisplayName` value to your desired app name
+
+Or edit `project.pbxproj` directly and change:
+
+```
+INFOPLIST_KEY_CFBundleDisplayName = YourAppName;
 ```
 
 ---
@@ -426,6 +438,19 @@ Edit `Info.plist`:
 ## 🐛 Troubleshooting
 
 ### Build Issues
+
+#### Error: "Multiple commands produce Info.plist"
+
+**Fixed**: This issue has been resolved. The project now uses auto-generated Info.plist with build
+settings.
+
+If you encounter this error:
+
+- Ensure `SimpleHomeAssistant/Info.plist` is renamed to `Info.plist.backup`
+- The project uses `GENERATE_INFOPLIST_FILE = YES` in build settings
+- Custom Info.plist values are defined as `INFOPLIST_KEY_*` build settings
+
+See `BUILD_FIX.md` for details.
 
 #### Error: "No such module 'SwiftUI'"
 

@@ -30,19 +30,20 @@ class AppViewModel: ObservableObject {
     var filteredEntities: [HAEntity] {
         var filtered = entities
         
-        // Filter by selected entities
-        if !selectedEntityIds.isEmpty {
-            filtered = filtered.filter { selectedEntityIds.contains($0.entityId) }
-        }
-        
-        // Filter by tab
+        // Filter by tab selection
         if let tabName = selectedTab,
            let tab = customTabs.first(where: { $0.name == tabName }) {
+            // When a specific tab is selected, show entities in that tab
             let tabEntityIds = Set(tab.entityIds)
             filtered = filtered.filter { tabEntityIds.contains($0.entityId) }
-        } else if selectedTab == nil {
-            // Show only controllable entities on "All" tab
-            filtered = filtered.filter { $0.isControllable }
+        } else {
+            // "All" tab: show either selected entities or all controllable entities
+            if !selectedEntityIds.isEmpty {
+                filtered = filtered.filter { selectedEntityIds.contains($0.entityId) }
+            } else {
+                // If no entities selected, show all controllable entities
+                filtered = filtered.filter { $0.isControllable }
+            }
         }
         
         return filtered.sorted { $0.friendlyName < $1.friendlyName }

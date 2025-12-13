@@ -1,0 +1,205 @@
+//
+//  TabManagementView.swift
+//  SimpleHomeAssistant
+//
+//  Custom tab management
+//
+
+import SwiftUI
+
+struct TabManagementView: View {
+    @EnvironmentObject var viewModel: AppViewModel
+    @State private var showingAddSheet = false
+    
+    var body: some View {
+        NavigationView {
+            VStack {
+                if viewModel.activeConfiguration != nil {
+                    if viewModel.customTabs.isEmpty {
+                        VStack(spacing: 16) {
+                            Image(systemName: "square.grid.2x2")
+                                .font(.system(size: 50))
+                                .foregroundColor(.gray)
+                            Text("No Custom Tabs")
+                                .font(.headline)
+                            Text("Create tabs to organize entities by room or category.\nTap a tab to select which entities appear on your Dashboard.")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal)
+                            Button(action: { showingAddSheet = true }) {
+                                Label("Add Tab", systemImage: "plus.circle.fill")
+                            }
+                            .buttonStyle(.borderedProminent)
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    } else {
+                        List {
+                            ForEach(viewModel.customTabs) { tab in
+                                NavigationLink(destination: TabDetailView(tab: tab)) {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(tab.name)
+                                            .font(.headline)
+                                        Text("\(tab.entityIds.count) entities")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+                                }
+                            }
+                            .onDelete { indexSet in
+                                for index in indexSet {
+                                    viewModel.deleteTab(viewModel.customTabs[index])
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    NoConfigView()
+                }
+            }
+            .navigationBarHidden(true)
+            .toolbar {
+                if viewModel.activeConfiguration != nil && !viewModel.customTabs.isEmpty {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button(action: { showingAddSheet = true }) {
+                            Image(systemName: "plus")
+                        }
+                    }
+                }
+            }
+            .sheet(isPresented: $showingAddSheet) {
+                AddTabView()
+            }
+        }
+    }
+}
+
+struct AddTabView: View {
+    @EnvironmentObject var viewModel: AppViewModel
+    @Environment(\.dismiss) var dismiss
+    @State private var name = ""
+    
+    var body: some View {
+        NavigationView {
+            Form {
+                Section("Tab Name") {
+                    TextField("e.g., Living Room", text: $name)
+                }
+                Section {
+                    Text("After creating, tap the tab to assign entities")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+            .navigationTitle("New Tab")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Create") {
+                        guard let config = viewModel.activeConfiguration else { return }
+                        let tab = CustomTab(
+                            name: name,
+                            entityIds: [],
+                            displayOrder: viewModel.customTabs.count,
+                            configurationId: config.id
+                        )
+                        viewModel.saveTab(tab)
+                        dismiss()
+                    }
+                    .disabled(name.isEmpty)
+                }
+            }
+        }
+    }
+}
+
+struct TabDetailView: View {
+    @EnvironmentObject var viewModel: AppViewModel
+    let tab: CustomTab
+    @State private var searchText = ""
+    @State private var assignedEntityIds: Set<String> = []
+    
+    var filteredEntities: [HAEntity] {
+        let entities = viewModel.entities
+        if searchText.isEmpty {
+            return entities
+        } else {
+            return entities.filter {
+                $0.friendlyName.localizedCaseInsensitiveContains(searchText) ||
+                $0.entityId.localizedCaseInsensitiveContains(searchText)
+            }
+        }
+    }
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            // Search bar at top (fixed)
+            HStack {
+                Image(systemName: "magnifyingglass")
+                    .foregroundColor(.gray)
+                TextField("Search...", text: $searchText)
+                if !searchText.isEmpty {
+                    Button(action: { searchText = "" }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(.gray)
+                    }
+                }
+            }
+            .padding()
+            .background(Color(uiColor: .secondarySystemGroupedBackground))
+            
+            // Scrollable list of entities
+            List {
+                ForEach(filteredEntities) { entity in
+                    Button(action: {
+                        toggleAssignment(entity.entityId)
+                    }) {
+                        HStack {
+                            Image(systemName: assignedEntityIds.contains(entity.entityId) ? "checkmark.square.fill" : "square")
+                                .foregroundColor(assignedEntityIds.contains(entity.entityId) ? .blue : .gray)
+                            VStack(alignment: .leading) {
+                                Text(entity.friendlyName)
+                                Text(entity.entityId)
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            Spacer()
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .listStyle(.plain)
+            
+            // Info bar at bottom (fixed)
+            HStack {
+                Text("\(assignedEntityIds.count) assigned")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                Spacer()
+            }
+            .padding()
+            .background(Color(uiColor: .systemGroupedBackground))
+        }
+        .navigationTitle(tab.name)
+        .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            assignedEntityIds = Set(tab.entityIds)
+        }
+    }
+    
+    private func toggleAssignment(_ entityId: String) {
+        var updatedTab = tab
+        if assignedEntityIds.contains(entityId) {
+            assignedEntityIds.remove(entityId)
+            updatedTab.entityIds.removeAll { $0 == entityId }
+        } else {
+            assignedEntityIds.insert(entityId)
+            updatedTab.entityIds.append(entityId)
+        }
+        viewModel.saveTab(updatedTab)
+    }
+}

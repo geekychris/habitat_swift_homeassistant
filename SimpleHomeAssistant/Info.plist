@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- App Display Name -->
+	<key>CFBundleDisplayName</key>
+	<string>HAbitat</string>
+	<key>CFBundleName</key>
+	<string>HAbitat</string>
+	
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
+	
+	<!-- Allow HTTP connections to local Home Assistant servers -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<!-- Allow all HTTP for development/local networks -->
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+		
+		<!-- More secure: Allow specific domains only -->
+		<key>NSExceptionDomains</key>
+		<dict>
+			<!-- Allow local network IP ranges -->
+			<key>192.168.1.82</key>
+			<dict>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<true/>
+				<key>NSIncludesSubdomains</key>
+				<true/>
+			</dict>
+			<key>hitorro.com</key>
+			<dict>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<true/>
+				<key>NSIncludesSubdomains</key>
+				<true/>
+			</dict>
+			<!-- Allow localhost for testing -->
+			<key>localhost</key>
+			<dict>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<true/>
+			</dict>
+		</dict>
+	</dict>
+</dict>
+</plist>

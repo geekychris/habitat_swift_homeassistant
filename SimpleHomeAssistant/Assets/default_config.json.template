@@ -1,0 +1,7 @@
+{
+  "name": "My Home",
+  "internalUrl": "http://192.168.1.100:8123",
+  "externalUrl": "https://your-domain.duckdns.org:8123",
+  "apiToken": "your-long-lived-access-token-here",
+  "isActive": true
+}

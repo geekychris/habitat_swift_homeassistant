@@ -1,0 +1,113 @@
+name: Release Build
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'  # Triggers on version tags like v1.0.0
+  workflow_dispatch: # Allows manual triggering
+    inputs:
+      version:
+        description: 'Version number (e.g., 1.0.0)'
+        required: true
+        type: string
+
+jobs:
+  release:
+    name: Build Release
+    runs-on: macos-14
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Select Xcode version
+        run: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+
+      - name: Show Xcode version
+        run: xcodebuild -version
+
+      - name: Set version number
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${GITHUB_REF#refs/tags/v}"
+          fi
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+          echo "Building version: ${VERSION}"
+
+      - name: Update version in project
+        run: |
+          # Update marketing version (user-facing version)
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${{ env.VERSION }}" SimpleHomeAssistant/Info.plist.backup || true
+          
+          # Update build number (use timestamp for uniqueness)
+          BUILD_NUMBER=$(date +%Y%m%d%H%M)
+          echo "BUILD_NUMBER=${BUILD_NUMBER}" >> $GITHUB_ENV
+
+      - name: Build for iOS Device (Release)
+        run: |
+          xcodebuild clean archive \
+            -scheme SimpleHomeAssistant \
+            -sdk iphoneos \
+            -configuration Release \
+            -archivePath ${{ runner.temp }}/SimpleHomeAssistant.xcarchive \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            MARKETING_VERSION=${{ env.VERSION }} \
+            CURRENT_PROJECT_VERSION=${{ env.BUILD_NUMBER }}
+
+      - name: Create IPA (without signing)
+        run: |
+          mkdir -p ${{ runner.temp }}/Payload
+          cp -r ${{ runner.temp }}/SimpleHomeAssistant.xcarchive/Products/Applications/SimpleHomeAssistant.app \
+                ${{ runner.temp }}/Payload/
+          cd ${{ runner.temp }}
+          zip -r SimpleHomeAssistant-${{ env.VERSION }}.ipa Payload
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SimpleHomeAssistant-${{ env.VERSION }}
+          path: ${{ runner.temp }}/SimpleHomeAssistant-${{ env.VERSION }}.ipa
+          retention-days: 90
+
+      - name: Create GitHub Release
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: ${{ runner.temp }}/SimpleHomeAssistant-${{ env.VERSION }}.ipa
+          draft: true
+          generate_release_notes: true
+          body: |
+            ## HAbitat iOS v${{ env.VERSION }}
+            
+            ### Installation
+            This is an unsigned build for testing purposes. To install:
+            1. Download the IPA file
+            2. Use a tool like [AltStore](https://altstore.io/) or Xcode to sideload
+            3. Or build from source with your own signing certificate
+            
+            ### Changes
+            See release notes below for full changelog.
+            
+            ### Requirements
+            - iOS 16.0 or later
+            - iPhone or iPad
+            - Home Assistant instance (local or remote)
+            
+            ---
+            🏠 **HAbitat** - Your home, in your pocket
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build Summary
+        run: |
+          echo "## Build Complete! 🎉" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ env.VERSION }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Build Number:** ${{ env.BUILD_NUMBER }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Configuration:** Release" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "IPA artifact uploaded and ready for download." >> $GITHUB_STEP_SUMMARY

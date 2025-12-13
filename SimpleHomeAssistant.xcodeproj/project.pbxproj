@@ -29,22 +29,9 @@
 		83178A722EEDD77C00A9F2D7 /* SimpleHomeAssistantUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SimpleHomeAssistantUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
-/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		83178A7A2EEDD77C00A9F2D7 /* Exceptions for "SimpleHomeAssistant" folder in "SimpleHomeAssistant" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Info.plist,
-			);
-			target = 83178A532EEDD77B00A9F2D7 /* SimpleHomeAssistant */;
-		};
-/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
-
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		83178A562EEDD77B00A9F2D7 /* SimpleHomeAssistant */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				83178A7A2EEDD77C00A9F2D7 /* Exceptions for "SimpleHomeAssistant" folder in "SimpleHomeAssistant" target */,
-			);
 			path = SimpleHomeAssistant;
 			sourceTree = "<group>";
 		};

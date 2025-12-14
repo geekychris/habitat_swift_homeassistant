@@ -66,15 +66,28 @@ struct DashboardView: View {
                     } else if viewModel.filteredEntities.isEmpty {
                         EmptyStateView()
                     } else {
-                        ScrollView {
-                            // Single column layout - works reliably on all devices
-                            LazyVStack(spacing: 12) {
-                                ForEach(viewModel.filteredEntities) { entity in
-                                    EntityCardView(entity: entity)
-                                }
+                        List {
+                            ForEach(viewModel.filteredEntities) { entity in
+                                EntityCardView(entity: entity)
+                                    .listRowSeparator(.hidden)
+                                    .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                        Button(role: .destructive) {
+                                            viewModel.removeFromDashboard(entity.entityId)
+                                        } label: {
+                                            Label("Remove from Dashboard", systemImage: "trash")
+                                        }
+                                    }
+                                    .contextMenu {
+                                        Button(role: .destructive) {
+                                            viewModel.removeFromDashboard(entity.entityId)
+                                        } label: {
+                                            Label("Remove from Dashboard", systemImage: "trash")
+                                        }
+                                    }
                             }
-                            .padding()
                         }
+                        .listStyle(.plain)
                     }
                 } else {
                     NoConfigView()

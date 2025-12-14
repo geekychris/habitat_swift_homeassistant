@@ -83,9 +83,18 @@ struct EntitySelectionView: View {
                                         
                                         VStack(alignment: .leading, spacing: 4) {
                                             Text(entity.friendlyName)
-                                            Text(entity.entityId)
-                                                .font(.caption)
-                                                .foregroundColor(.secondary)
+                                            HStack {
+                                                Text(entity.entityId)
+                                                    .font(.caption)
+                                                    .foregroundColor(.secondary)
+                                                
+                                                // Show unavailable status
+                                                if entity.state.lowercased() == "unavailable" {
+                                                    Text("• Unavailable")
+                                                        .font(.caption)
+                                                        .foregroundColor(.orange)
+                                                }
+                                            }
                                         }
                                         
                                         Spacer()

@@ -122,9 +122,17 @@ struct TabDetailView: View {
     let tab: CustomTab
     @State private var searchText = ""
     @State private var assignedEntityIds: Set<String> = []
+    @State private var hideUnavailable = false
     
     var filteredEntities: [HAEntity] {
-        let entities = viewModel.entities
+        var entities = viewModel.entities
+        
+        // Filter out unavailable if checkbox is checked
+        if hideUnavailable {
+            entities = entities.filter { $0.state.lowercased() != "unavailable" }
+        }
+        
+        // Filter by search text
         if searchText.isEmpty {
             return entities
         } else {
@@ -158,16 +166,32 @@ struct TabDetailView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            // Search bar at top (fixed)
-            HStack {
-                Image(systemName: "magnifyingglass")
-                    .foregroundColor(.gray)
-                TextField("Search...", text: $searchText)
-                if !searchText.isEmpty {
-                    Button(action: { searchText = "" }) {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundColor(.gray)
+            // Search bar and filter options at top (fixed)
+            VStack(spacing: 8) {
+                HStack {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundColor(.gray)
+                    TextField("Search...", text: $searchText)
+                    if !searchText.isEmpty {
+                        Button(action: { searchText = "" }) {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundColor(.gray)
+                        }
                     }
+                }
+                
+                // Hide unavailable checkbox
+                HStack {
+                    Button(action: { hideUnavailable.toggle() }) {
+                        HStack(spacing: 8) {
+                            Image(systemName: hideUnavailable ? "checkmark.square.fill" : "square")
+                                .foregroundColor(hideUnavailable ? .blue : .gray)
+                            Text("Hide Unavailable")
+                                .font(.subheadline)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    Spacer()
                 }
             }
             .padding()
@@ -182,16 +206,34 @@ struct TabDetailView: View {
                         HStack {
                             Image(systemName: assignedEntityIds.contains(entity.entityId) ? "checkmark.square.fill" : "square")
                                 .foregroundColor(assignedEntityIds.contains(entity.entityId) ? .blue : .gray)
-                            VStack(alignment: .leading) {
+                            VStack(alignment: .leading, spacing: 4) {
                                 Text(entity.friendlyName)
-                                Text(entity.entityId)
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
+                                HStack {
+                                    Text(entity.entityId)
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                    
+                                    // Show unavailable status
+                                    if entity.state.lowercased() == "unavailable" {
+                                        Text("• Unavailable")
+                                            .font(.caption)
+                                            .foregroundColor(.orange)
+                                    }
+                                }
                             }
                             Spacer()
                         }
                     }
                     .buttonStyle(.plain)
+                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                        if assignedEntityIds.contains(entity.entityId) {
+                            Button(role: .destructive) {
+                                toggleAssignment(entity.entityId)
+                            } label: {
+                                Label("Remove", systemImage: "trash")
+                            }
+                        }
+                    }
                 }
             }
             .listStyle(.plain)

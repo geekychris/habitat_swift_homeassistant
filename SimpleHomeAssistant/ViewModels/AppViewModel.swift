@@ -202,6 +202,24 @@ class AppViewModel: ObservableObject {
         persistence.saveSelectedEntities(Array(selectedEntityIds), configId: config.id)
     }
     
+    /// Remove entity from dashboard (handles both "All" tab and custom tabs)
+    func removeFromDashboard(_ entityId: String) {
+        guard let config = activeConfiguration else { return }
+        
+        if let tabName = selectedTab,
+           let tabIndex = customTabs.firstIndex(where: { $0.name == tabName }) {
+            // Viewing a custom tab - remove from that tab
+            var updatedTab = customTabs[tabIndex]
+            updatedTab.entityIds.removeAll { $0 == entityId }
+            customTabs[tabIndex] = updatedTab
+            persistence.saveTabs(customTabs, configId: config.id)
+        } else {
+            // Viewing "All" tab - remove from selectedEntityIds
+            selectedEntityIds.remove(entityId)
+            persistence.saveSelectedEntities(Array(selectedEntityIds), configId: config.id)
+        }
+    }
+    
     // MARK: - Custom Tabs
     
     func loadTabs(configId: UUID) {

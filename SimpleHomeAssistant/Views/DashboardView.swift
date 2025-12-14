@@ -14,29 +14,34 @@ struct DashboardView: View {
         NavigationView {
             VStack(spacing: 0) {
                 if let config = viewModel.activeConfiguration {
-                    // URL Toggle & Refresh
+                    // Configuration info and refresh button
                     HStack(spacing: 12) {
-                        Button(action: { viewModel.toggleUrlType() }) {
-                            HStack {
-                                Image(systemName: config.useInternalUrl ? "house.fill" : "globe")
-                                Text(config.useInternalUrl ? "Internal" : "External")
-                            }
-                            .font(.subheadline)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .background(config.useInternalUrl ? Color.blue : Color.green)
-                            .foregroundColor(.white)
-                            .cornerRadius(8)
+                        // Active configuration indicator
+                        HStack(spacing: 6) {
+                            Image(systemName: "circle.fill")
+                                .font(.system(size: 8))
+                                .foregroundColor(.green)
+                            Text(config.name)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Text("•")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Text(config.useInternalUrl ? "Internal" : "External")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
                         }
                         
+                        Spacer()
+                        
+                        // Refresh button
                         Button(action: { Task { await viewModel.loadEntities() } }) {
                             Image(systemName: "arrow.clockwise")
                                 .padding(6)
                         }
-                        
-                        Spacer()
                     }
-                    .padding()
+                    .padding(.horizontal)
+                    .padding(.top, 8)
                     
                     // Tab Filter
                     if !viewModel.customTabs.isEmpty {

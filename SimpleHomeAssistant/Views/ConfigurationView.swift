@@ -6,10 +6,16 @@
 //
 
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct ConfigurationView: View {
     @EnvironmentObject var viewModel: AppViewModel
     @State private var showingAddSheet = false
+    @State private var showingExportSheet = false
+    @State private var showingImportPicker = false
+    @State private var exportURL: URL?
+    @State private var showingAlert = false
+    @State private var alertMessage = ""
     
     var body: some View {
         NavigationView {
@@ -42,21 +48,108 @@ struct ConfigurationView: View {
             }
             .navigationBarHidden(true)
             
-            // Floating + button
-            Button(action: { showingAddSheet = true }) {
-                Image(systemName: "plus")
-                    .font(.title2)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.white)
-                    .frame(width: 56, height: 56)
-                    .background(Circle().fill(Color.blue))
-                    .shadow(color: Color.black.opacity(0.3), radius: 4, x: 0, y: 2)
+            // Floating action buttons
+            VStack(spacing: 12) {
+                // Import/Export menu
+                Menu {
+                    Button(action: { exportAllConfigurations() }) {
+                        Label("Export All", systemImage: "square.and.arrow.up")
+                    }
+                    .disabled(viewModel.configurations.isEmpty)
+                    
+                    Button(action: { showingImportPicker = true }) {
+                        Label("Import", systemImage: "square.and.arrow.down")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .font(.title3)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.white)
+                        .frame(width: 48, height: 48)
+                        .background(Circle().fill(Color.gray))
+                        .shadow(color: Color.black.opacity(0.3), radius: 4, x: 0, y: 2)
+                }
+                
+                // Add button
+                Button(action: { showingAddSheet = true }) {
+                    Image(systemName: "plus")
+                        .font(.title2)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.white)
+                        .frame(width: 56, height: 56)
+                        .background(Circle().fill(Color.blue))
+                        .shadow(color: Color.black.opacity(0.3), radius: 4, x: 0, y: 2)
+                }
             }
             .padding(16)
             .sheet(isPresented: $showingAddSheet) {
                 AddConfigurationView(isPresented: $showingAddSheet)
             }
+            .sheet(item: $exportURL) { url in
+                ShareSheet(items: [url])
+            }
+            .fileImporter(
+                isPresented: $showingImportPicker,
+                allowedContentTypes: [.json],
+                allowsMultipleSelection: false
+            ) { result in
+                handleImport(result: result)
+            }
+            .alert("Import/Export", isPresented: $showingAlert) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text(alertMessage)
+            }
         }
+        }
+    }
+    
+    // MARK: - Import/Export Functions
+    
+    private func exportAllConfigurations() {
+        guard let data = ConfigurationImportExport.exportConfigurations(viewModel.configurations) else {
+            alertMessage = "Failed to export configurations"
+            showingAlert = true
+            return
+        }
+        
+        let url = ConfigurationImportExport.createBatchExportFileURL()
+        guard ConfigurationImportExport.writeToFile(data: data, url: url) else {
+            alertMessage = "Failed to write export file"
+            showingAlert = true
+            return
+        }
+        
+        exportURL = url
+    }
+    
+    private func handleImport(result: Result<[URL], Error>) {
+        switch result {
+        case .success(let urls):
+            guard let url = urls.first else { return }
+            
+            guard let data = ConfigurationImportExport.readFromFile(url: url) else {
+                alertMessage = "Failed to read file"
+                showingAlert = true
+                return
+            }
+            
+            let importResult = ConfigurationImportExport.importConfigurations(from: data)
+            switch importResult {
+            case .success(let configs):
+                for config in configs {
+                    viewModel.saveConfiguration(config)
+                }
+                alertMessage = "Successfully imported \(configs.count) configuration(s)"
+                showingAlert = true
+            case .failure(let error):
+                alertMessage = error.localizedDescription
+                showingAlert = true
+            }
+            
+        case .failure(let error):
+            alertMessage = "Failed to import: \(error.localizedDescription)"
+            showingAlert = true
         }
     }
 }

@@ -24,53 +24,32 @@ struct ContentView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            // Compact header with app branding, config name, and page name
-            VStack(spacing: 8) {
-                HStack(alignment: .center, spacing: 12) {
-                    // App branding (left side)
-                    HStack(spacing: 8) {
-                        Image(systemName: "house.circle.fill")
-                            .font(.title2)
-                            .foregroundColor(.blue)
-                        Text("HA-bitat")
-                            .font(.headline)
-                            .fontWeight(.bold)
-                            .foregroundColor(.primary)
-                    }
-                    
-                    Spacer()
-                    
-                    // Page name (right side)
-                    Text(currentPageName)
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(Color.blue.opacity(0.8))
-                        )
+            // Compact header with app branding and page name
+            HStack(alignment: .center, spacing: 12) {
+                // App branding (left side)
+                HStack(spacing: 8) {
+                    Image(systemName: "house.circle.fill")
+                        .font(.title2)
+                        .foregroundColor(.blue)
+                    Text("HA-bitat")
+                        .font(.headline)
+                        .fontWeight(.bold)
+                        .foregroundColor(.primary)
                 }
                 
-                // Active configuration indicator (if any)
-                if let activeConfig = viewModel.activeConfiguration {
-                    HStack(spacing: 6) {
-                        Image(systemName: "circle.fill")
-                            .font(.system(size: 8))
-                            .foregroundColor(.green)
-                        Text(activeConfig.name)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        Text("•")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        Text(activeConfig.useInternalUrl ? "Internal" : "External")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                }
+                Spacer()
+                
+                // Page name (right side)
+                Text(currentPageName)
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(Color.blue.opacity(0.8))
+                    )
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)

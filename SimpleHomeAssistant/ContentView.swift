@@ -14,47 +14,70 @@ struct ContentView: View {
     var currentPageName: String {
         switch selectedTab {
         case 0: return "Dashboard"
-        case 1: return "Configurations"
-        case 2: return "Custom Tabs"
+        case 1: return "History"
+        case 2: return "Events"
+        case 3: return "Configurations"
+        case 4: return "Custom Tabs"
         default: return ""
         }
     }
     
     var body: some View {
         VStack(spacing: 0) {
-            // Compact header with app branding and page name
-            HStack(alignment: .center, spacing: 12) {
-                // App branding (left side)
-                HStack(spacing: 8) {
-                    Image(systemName: "house.circle.fill")
-                        .font(.title2)
-                        .foregroundColor(.blue)
-                    Text("HA-bitat")
-                        .font(.headline)
-                        .fontWeight(.bold)
-                        .foregroundColor(.primary)
+            // Compact header with app branding, config name, and page name
+            VStack(spacing: 8) {
+                HStack(alignment: .center, spacing: 12) {
+                    // App branding (left side)
+                    HStack(spacing: 8) {
+                        Image(systemName: "house.circle.fill")
+                            .font(.title2)
+                            .foregroundColor(.blue)
+                        Text("HA-bitat")
+                            .font(.headline)
+                            .fontWeight(.bold)
+                            .foregroundColor(.primary)
+                    }
+                    
+                    Spacer()
+                    
+                    // Page name (right side)
+                    Text(currentPageName)
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color.blue.opacity(0.8))
+                        )
                 }
                 
-                Spacer()
-                
-                // Page name (right side)
-                Text(currentPageName)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(Color.blue.opacity(0.8))
-                    )
+                // Active configuration indicator (if any)
+                if let activeConfig = viewModel.activeConfiguration {
+                    HStack(spacing: 6) {
+                        Image(systemName: "circle.fill")
+                            .font(.system(size: 8))
+                            .foregroundColor(.green)
+                        Text(activeConfig.name)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Text("•")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Text(activeConfig.useInternalUrl ? "Internal" : "External")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
             .background(Color(uiColor: .systemBackground))
             .shadow(color: Color.black.opacity(0.1), radius: 2, x: 0, y: 1)
             
-            // Main content with tabs (removed Select tab - use Tabs editor instead)
+            // Main content with tabs
             TabView(selection: $selectedTab) {
                 DashboardView()
                     .tabItem {
@@ -62,17 +85,29 @@ struct ContentView: View {
                     }
                     .tag(0)
                 
+                HistoryView()
+                    .tabItem {
+                        Label("History", systemImage: "clock.arrow.2.circlepath")
+                    }
+                    .tag(1)
+                
+                ActivityView()
+                    .tabItem {
+                        Label("Events", systemImage: "bell.fill")
+                    }
+                    .tag(2)
+                
                 ConfigurationView()
                     .tabItem {
                         Label("Config", systemImage: "gearshape.fill")
                     }
-                    .tag(1)
+                    .tag(3)
                 
                 TabManagementView()
                     .tabItem {
                         Label("Tabs", systemImage: "square.grid.2x2")
                     }
-                    .tag(2)
+                    .tag(4)
             }
             .environmentObject(viewModel)
             .accentColor(.blue)

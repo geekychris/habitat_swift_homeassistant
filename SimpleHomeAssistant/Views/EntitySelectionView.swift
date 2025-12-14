@@ -15,9 +15,30 @@ struct EntitySelectionView: View {
         if searchText.isEmpty {
             return viewModel.entities
         } else {
-            return viewModel.entities.filter {
-                $0.friendlyName.localizedCaseInsensitiveContains(searchText) ||
-                $0.entityId.localizedCaseInsensitiveContains(searchText)
+            return viewModel.entities.filter { entity in
+                matchesTokenizedSearch(text: searchText, in: entity.friendlyName) ||
+                matchesTokenizedSearch(text: searchText, in: entity.entityId)
+            }
+        }
+    }
+    
+    /// Tokenized prefix matching: "kitchen cab" matches "Kitchen under cabinet light"
+    /// Each search token must match at least one word (prefix) in the target
+    private func matchesTokenizedSearch(text searchText: String, in target: String) -> Bool {
+        // Split search text into tokens (words)
+        let searchTokens = searchText.lowercased()
+            .components(separatedBy: CharacterSet.whitespacesAndNewlines)
+            .filter { !$0.isEmpty }
+        
+        // Split target into words
+        let targetWords = target.lowercased()
+            .components(separatedBy: CharacterSet.whitespacesAndNewlines)
+            .filter { !$0.isEmpty }
+        
+        // Each search token must match at least one target word (prefix match)
+        return searchTokens.allSatisfy { searchToken in
+            targetWords.contains { targetWord in
+                targetWord.hasPrefix(searchToken)
             }
         }
     }

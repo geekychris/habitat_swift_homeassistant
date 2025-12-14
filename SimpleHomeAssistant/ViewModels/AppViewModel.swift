@@ -92,6 +92,11 @@ class AppViewModel: ObservableObject {
         api.setConfiguration(config)
         loadSelectedEntities(configId: config.id)
         loadTabs(configId: config.id)
+        
+        // Automatically refresh entities from the new configuration
+        Task {
+            await loadEntities()
+        }
     }
     
     func toggleUrlType() {

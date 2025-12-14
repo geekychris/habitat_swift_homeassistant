@@ -13,6 +13,8 @@ struct EntityCardView: View {
     @State private var brightness: Double = 0
     @State private var isProcessing: Bool = false
     @State private var debounceTask: Task<Void, Never>?
+    @State private var showTemperatureInput: Bool = false
+    @State private var temperatureInput: String = ""
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -89,23 +91,57 @@ struct EntityCardView: View {
                         Text("Temperature:")
                             .font(.subheadline)
                         Spacer()
-                        HStack(spacing: 12) {
-                            Button(action: { handleTemperatureChange(temp - 1) }) {
-                                Image(systemName: "minus.circle")
-                                    .font(.title2)
+                        
+                        if showTemperatureInput {
+                            // Text input mode
+                            HStack(spacing: 8) {
+                                TextField("Temp", text: $temperatureInput)
+                                    .textFieldStyle(.roundedBorder)
+                                    .keyboardType(.decimalPad)
+                                    .frame(width: 60)
+                                    .onAppear {
+                                        temperatureInput = String(Int(temp))
+                                    }
+                                
+                                Button("Set") {
+                                    if let newTemp = Double(temperatureInput) {
+                                        handleTemperatureChange(newTemp)
+                                    }
+                                    showTemperatureInput = false
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .disabled(isProcessing)
+                                
+                                Button("Cancel") {
+                                    showTemperatureInput = false
+                                }
+                                .buttonStyle(.bordered)
                             }
-                            .disabled(isProcessing)
-                            
-                            Text("\(Int(temp))°")
-                                .font(.title3)
-                                .fontWeight(.semibold)
-                                .frame(minWidth: 50)
-                            
-                            Button(action: { handleTemperatureChange(temp + 1) }) {
-                                Image(systemName: "plus.circle")
-                                    .font(.title2)
+                        } else {
+                            // Stepper mode
+                            HStack(spacing: 12) {
+                                Button(action: { handleTemperatureChange(temp - 1) }) {
+                                    Image(systemName: "minus.circle")
+                                        .font(.title2)
+                                }
+                                .disabled(isProcessing)
+                                
+                                Button(action: { 
+                                    temperatureInput = String(Int(temp))
+                                    showTemperatureInput = true
+                                }) {
+                                    Text("\(Int(temp))°")
+                                        .font(.title3)
+                                        .fontWeight(.semibold)
+                                        .frame(minWidth: 50)
+                                }
+                                
+                                Button(action: { handleTemperatureChange(temp + 1) }) {
+                                    Image(systemName: "plus.circle")
+                                        .font(.title2)
+                                }
+                                .disabled(isProcessing)
                             }
-                            .disabled(isProcessing)
                         }
                     }
                     

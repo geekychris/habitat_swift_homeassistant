@@ -9,9 +9,33 @@ import Foundation
 
 class HomeAssistantAPI {
     private var configuration: HAConfiguration?
+    private var authToken: String?
     
     func setConfiguration(_ config: HAConfiguration) {
         self.configuration = config
+        // Clear cached token when config changes
+        self.authToken = nil
+    }
+    
+    // MARK: - Authentication
+    
+    /// Get the appropriate token for the current URL
+    private func getCurrentToken() throws -> String {
+        guard let config = configuration else {
+            throw APIError.noConfiguration
+        }
+        
+        guard let token = config.currentToken, !token.isEmpty else {
+            throw APIError.missingCredentials
+        }
+        
+        return token
+    }
+    
+    /// Get authorization header value
+    private func getAuthorizationHeader() throws -> String {
+        let token = try getCurrentToken()
+        return "Bearer \(token)"
     }
     
     // MARK: - Fetch Entities
@@ -24,14 +48,18 @@ class HomeAssistantAPI {
         let url = URL(string: "\(config.currentUrl)/api/states")!
         var request = URLRequest(url: url)
         
-        // Trim token and ensure proper format
-        let cleanToken = config.apiToken.trimmingCharacters(in: .whitespacesAndNewlines)
-        request.setValue("Bearer \(cleanToken)", forHTTPHeaderField: "Authorization")
+        // Get authorization header with correct token
+        let authHeader = try getAuthorizationHeader()
+        request.setValue(authHeader, forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.timeoutInterval = 30
         
         print("🔗 Fetching entities from: \(config.currentUrl)")
-        print("🔑 Using token: Bearer \(String(cleanToken.prefix(20)))...")
+        print("🔑 Auth type: \(config.authType)")
+        print("🔑 Using \(config.useInternalUrl ? "internal" : "external") URL")
+        print("📍 Internal URL: \(config.internalUrl)")
+        print("📍 External URL: \(config.externalUrl)")
+        print("🎯 Actually using: \(config.currentUrl)")
         
         let (data, response) = try await URLSession.shared.data(for: request)
         
@@ -43,7 +71,7 @@ class HomeAssistantAPI {
         
         guard httpResponse.statusCode == 200 else {
             if httpResponse.statusCode == 401 {
-                print("❌ 401 Unauthorized - Check your API token")
+                print("❌ 401 Unauthorized - Check your token for \(config.useInternalUrl ? "internal" : "external") URL")
                 throw APIError.unauthorized
             }
             throw APIError.httpError(httpResponse.statusCode)
@@ -112,9 +140,15 @@ class HomeAssistantAPI {
         let url = URL(string: "\(config.currentUrl)/api/services/\(domain)/\(service)")!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.setValue("Bearer \(config.apiToken)", forHTTPHeaderField: "Authorization")
+        
+        // Get authorization header with correct token
+        let authHeader = try getAuthorizationHeader()
+        request.setValue(authHeader, forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.timeoutInterval = 30
+        
+        print("🎬 Calling service \(domain).\(service) via: \(config.currentUrl)")
+        print("🔑 Using \(config.useInternalUrl ? "internal" : "external") URL")
         
         let jsonData = try JSONSerialization.data(withJSONObject: serviceData)
         request.httpBody = jsonData
@@ -126,6 +160,9 @@ class HomeAssistantAPI {
         }
         
         guard (200...299).contains(httpResponse.statusCode) else {
+            if httpResponse.statusCode == 401 {
+                print("❌ 401 Unauthorized on service call")
+            }
             throw APIError.httpError(httpResponse.statusCode)
         }
     }
@@ -140,13 +177,14 @@ class HomeAssistantAPI {
         let url = URL(string: "\(config.currentUrl)/api/")!
         var request = URLRequest(url: url)
         
-        // Trim token and ensure proper format
-        let cleanToken = config.apiToken.trimmingCharacters(in: .whitespacesAndNewlines)
-        request.setValue("Bearer \(cleanToken)", forHTTPHeaderField: "Authorization")
+        // Get authorization header with correct token
+        let authHeader = try getAuthorizationHeader()
+        request.setValue(authHeader, forHTTPHeaderField: "Authorization")
         request.timeoutInterval = 10
         
         print("🔗 Testing connection to: \(config.currentUrl)")
-        print("🔑 Token: Bearer \(String(cleanToken.prefix(20)))...")
+        print("🔑 Auth type: \(config.authType)")
+        print("🔑 Using \(config.useInternalUrl ? "internal" : "external") URL")
         
         let (data, response) = try await URLSession.shared.data(for: request)
         
@@ -177,6 +215,7 @@ enum APIError: LocalizedError {
     case noConfiguration
     case invalidResponse
     case unauthorized
+    case missingCredentials
     case httpError(Int)
     
     var errorDescription: String? {
@@ -186,7 +225,9 @@ enum APIError: LocalizedError {
         case .invalidResponse:
             return "Invalid response from server"
         case .unauthorized:
-            return "401 Unauthorized - Invalid API token. Check your token in Home Assistant."
+            return "401 Unauthorized - Invalid token. Please re-authenticate or check your token."
+        case .missingCredentials:
+            return "Missing authentication token. Please configure authentication."
         case .httpError(let code):
             return "HTTP error: \(code)"
         }

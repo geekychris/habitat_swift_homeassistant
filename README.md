@@ -28,7 +28,9 @@ responsive, modern UI that works seamlessly across iPhone and iPad.
 - 📱 **Universal App** - Optimized for both iPhone and iPad
 - 🎨 **Custom Tabs** - Organize entities by room or category
 - ⚡ **Real-time Control** - Toggle lights, adjust thermostats, control switches
-- 🔐 **Secure** - HTTP support for local networks with ATS exceptions
+- 🔐 **Flexible Authentication** - API tokens OR OAuth2 web login (matches Android app)
+- 🔑 **Dual Authentication** - Separate tokens for internal and external URLs
+- 🔒 **Secure** - OAuth2 with PKCE, HTTP support for local networks
 - 💾 **Persistent** - Configurations and selections saved locally
 - 🎯 **Debounced Actions** - Smooth, flicker-free UI with loading states
 
@@ -334,8 +336,12 @@ The app will:
     - **Name**: Friendly name (e.g., "Home", "Office")
     - **Internal URL**: Local network URL (e.g., `http://192.168.1.100:8123`)
     - **External URL**: Remote URL (e.g., `https://yourdomain.duckdns.org:8123`)
-    - **API Token**: Long-lived access token from Home Assistant
+    - **Authentication Method**: Choose "API Token" or "Username & Password"
+        - **API Token**: Long-lived access token from Home Assistant (recommended)
+        - **Username & Password**: Your Home Assistant login credentials
 4. Tap **Save**
+
+**Note**: See `USERNAME_PASSWORD_AUTH.md` for detailed authentication guide.
 
 #### Step 2: Test Connection
 
@@ -614,25 +620,51 @@ xcodebuild test -scheme SimpleHomeAssistant \
 
 ## 🔄 Continuous Integration
 
-### GitHub Actions (Example)
+### GitHub Actions Workflows
 
-```yaml
-name: iOS Build
+This project includes three automated workflows:
 
-on: [push, pull_request]
+#### 1. **CI Build** (`build.yml`)
 
-jobs:
-  build:
-    runs-on: macos-14
-    steps:
-      - uses: actions/checkout@v4
-      - name: Build
-        run: |
-          cd iossimplehomeassistant/SimpleHomeAssistant
-          xcodebuild -scheme SimpleHomeAssistant \
-            -destination 'platform=iOS Simulator,name=iPhone 15 Pro' \
-            build
+- Triggers on push/PR to `main` or `develop`
+- Builds for iOS Simulator
+- Runs unit tests
+- Perfect for development workflow
+
+#### 2. **Release Build** (`release.yml`)
+
+- Triggers on version tags (`v1.0.0`)
+- Creates unsigned IPA for testing
+- Uploads to GitHub Releases
+- Can be triggered manually
+
+#### 3. **Signed Release** (`release-signed.yml`)
+
+- Triggers on signed tags (`v1.0.0-signed`)
+- Creates signed IPA with your certificates
+- Ready for TestFlight or ad-hoc distribution
+- Requires Apple Developer secrets setup
+
+### Quick Start
+
+**For testing builds:**
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+# Download IPA from GitHub Releases
 ```
+
+**For signed distribution:**
+
+```bash
+# First, add secrets to GitHub (see .github/workflows/README.md)
+git tag v1.0.0-signed
+git push origin v1.0.0-signed
+# Download signed IPA from GitHub Releases
+```
+
+**See full documentation:** `.github/workflows/README.md`
 
 ---
 

@@ -89,7 +89,7 @@ struct PersistenceController {
                     name: name,
                     internalUrl: internalUrl,
                     externalUrl: externalUrl,
-                    apiToken: apiToken,
+                    token: apiToken,
                     isActive: isActive
                 )
                 

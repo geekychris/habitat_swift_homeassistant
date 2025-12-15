@@ -99,13 +99,29 @@ class AppViewModel: ObservableObject {
         }
     }
     
+    func switchToURL(_ urlId: UUID) {
+        guard var config = activeConfiguration else { return }
+        config.activeUrlId = urlId
+        saveConfiguration(config)
+        loadConfigurations()
+        
+        // Update API with new configuration
+        if let updated = configurations.first(where: { $0.id == config.id }) {
+            api.setConfiguration(updated)
+        }
+    }
+    
     func toggleUrlType() {
         guard let config = activeConfiguration else { return }
-        var updated = config
-        updated.useInternalUrl.toggle()
-        saveConfiguration(updated)
-        loadConfigurations()
-        api.setConfiguration(updated)
+        
+        // Find the other URL (toggle between first and second)
+        if let currentUrlId = config.activeUrlId,
+           let otherUrl = config.urls.first(where: { $0.id != currentUrlId }) {
+            switchToURL(otherUrl.id)
+        } else if let firstUrl = config.urls.first {
+            // Fallback: switch to first URL if none selected
+            switchToURL(firstUrl.id)
+        }
     }
     
     func testConnection(_ config: HAConfiguration) async -> String {
@@ -119,6 +135,24 @@ class AppViewModel: ObservableObject {
     }
     
     // MARK: - Entity Management
+    
+    private func refreshSingleEntity(_ entityId: String) async {
+        guard let config = activeConfiguration else { return }
+        
+        do {
+            api.setConfiguration(config)
+            let allEntities = try await api.fetchAllEntities()
+            
+            // Update only the specific entity
+            if let updatedEntity = allEntities.first(where: { $0.entityId == entityId }),
+               let index = entities.firstIndex(where: { $0.entityId == entityId }) {
+                entities[index] = updatedEntity
+            }
+        } catch {
+            // Silent fail - user already sees optimistic update
+            print("⚠️ Failed to refresh entity \(entityId): \(error)")
+        }
+    }
     
     func loadEntities() async {
         guard let config = activeConfiguration else {
@@ -141,46 +175,89 @@ class AppViewModel: ObservableObject {
     
     func toggleEntity(_ entity: HAEntity) async {
         do {
+            // Optimistically update local state
+            if let index = entities.firstIndex(where: { $0.entityId == entity.entityId }) {
+                var updatedEntity = entities[index]
+                updatedEntity.state = updatedEntity.state == "on" ? "off" : "on"
+                entities[index] = updatedEntity
+            }
+            
+            // Send command to server
             try await api.toggleEntity(entity.entityId)
+            
+            // Refresh this specific entity in the background after a delay
             try await Task.sleep(nanoseconds: 500_000_000)
-            await loadEntities()
+            await refreshSingleEntity(entity.entityId)
         } catch {
             self.error = "Failed to toggle: \(error.localizedDescription)"
+            // On error, reload to get correct state
+            await loadEntities()
         }
     }
     
     func setBrightness(_ entity: HAEntity, brightness: Double) async {
         do {
+            // Optimistically update local state
+            if let index = entities.firstIndex(where: { $0.entityId == entity.entityId }) {
+                var updatedEntity = entities[index]
+                updatedEntity.attributes.brightness = Int(brightness)
+                updatedEntity.state = brightness > 0 ? "on" : "off"
+                entities[index] = updatedEntity
+            }
+            
             let value = Int(brightness * 255 / 100)
             if value > 0 {
                 try await api.turnOn(entity.entityId, brightness: value)
             } else {
                 try await api.turnOff(entity.entityId)
             }
+            
+            // Refresh this specific entity in the background
             try await Task.sleep(nanoseconds: 500_000_000)
-            await loadEntities()
+            await refreshSingleEntity(entity.entityId)
         } catch {
             self.error = "Failed to set brightness: \(error.localizedDescription)"
+            await loadEntities()
         }
     }
     
     func setTemperature(_ entity: HAEntity, temperature: Double) async {
         do {
+            // Optimistically update local state
+            if let index = entities.firstIndex(where: { $0.entityId == entity.entityId }) {
+                var updatedEntity = entities[index]
+                updatedEntity.attributes.temperature = temperature
+                entities[index] = updatedEntity
+            }
+            
             try await api.setTemperature(entity.entityId, temperature: temperature)
+            
+            // Refresh this specific entity in the background
             try await Task.sleep(nanoseconds: 500_000_000)
-            await loadEntities()
+            await refreshSingleEntity(entity.entityId)
         } catch {
             self.error = "Failed to set temperature: \(error.localizedDescription)"
+            await loadEntities()
         }
     }
     
     func setHvacMode(_ entity: HAEntity, mode: String) async {
         do {
+            // Optimistically update local state
+            if let index = entities.firstIndex(where: { $0.entityId == entity.entityId }) {
+                var updatedEntity = entities[index]
+                updatedEntity.attributes.hvacMode = mode
+                entities[index] = updatedEntity
+            }
+            
             try await api.setHvacMode(entity.entityId, mode: mode)
+            
+            // Refresh this specific entity in the background
             try await Task.sleep(nanoseconds: 500_000_000)
-            await loadEntities()
+            await refreshSingleEntity(entity.entityId)
         } catch {
             self.error = "Failed to set mode: \(error.localizedDescription)"
+            await loadEntities()
         }
     }
     

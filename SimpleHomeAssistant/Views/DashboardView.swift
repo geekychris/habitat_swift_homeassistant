@@ -24,12 +24,14 @@ struct DashboardView: View {
                             Text(config.name)
                                 .font(.caption)
                                 .foregroundColor(.secondary)
-                            Text("•")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                            Text(config.useInternalUrl ? "Internal" : "External")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
+                            if let currentUrl = config.currentURL {
+                                Text("•")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                Text(currentUrl.name)
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
                         }
                         
                         Spacer()

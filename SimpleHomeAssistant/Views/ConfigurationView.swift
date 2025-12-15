@@ -164,13 +164,16 @@ struct ConfigurationRow: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
+            // Header Row
             HStack {
                 VStack(alignment: .leading) {
                     Text(config.name)
                         .font(.headline)
-                    Text(config.useInternalUrl ? "Internal" : "External")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                    if let currentUrl = config.currentURL {
+                        Text(currentUrl.name)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
                 }
                 
                 Spacer()
@@ -190,17 +193,69 @@ struct ConfigurationRow: View {
             if isExpanded {
                 Divider()
                 
-                VStack(alignment: .leading, spacing: 8) {
-                    DetailRow(label: "Internal", value: config.internalUrl)
-                    DetailRow(label: "External", value: config.externalUrl)
-                    DetailRow(label: "Auth Type", value: config.authType == .token ? "API Token" : "OAuth (Web Login)")
+                // URLs Section
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Connection URLs")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
                     
-                    if let internalToken = config.internalToken {
-                        DetailRow(label: "Internal Token", value: String(internalToken.prefix(20)) + "...")
+                    ForEach(config.urls) { url in
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                HStack {
+                                    Text(url.name)
+                                        .font(.subheadline)
+                                        .fontWeight(.medium)
+                                    
+                                    if config.activeUrlId == url.id {
+                                        Text("Active")
+                                            .font(.caption2)
+                                            .padding(.horizontal, 6)
+                                            .padding(.vertical, 2)
+                                            .background(Color.blue.opacity(0.2))
+                                            .foregroundColor(.blue)
+                                            .cornerRadius(4)
+                                    }
+                                }
+                                
+                                Text(url.url)
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            
+                            Spacer()
+                            
+                            // Switch button (only show if not already active and config is active)
+                            if config.isActive && config.activeUrlId != url.id {
+                                Button("Switch") {
+                                    viewModel.switchToURL(url.id)
+                                }
+                                .buttonStyle(.bordered)
+                                .controlSize(.small)
+                            }
+                        }
+                        .padding(.vertical, 4)
                     }
+                }
+                
+                Divider()
+                
+                // Authentication Section
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Authentication")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
                     
-                    if let externalToken = config.externalToken, externalToken != config.internalToken {
-                        DetailRow(label: "External Token", value: String(externalToken.prefix(20)) + "...")
+                    DetailRow(label: "Method", value: config.authentication.method == .token ? "API Token" : "OAuth (Web Login)")
+                    
+                    if config.authentication.method == .token, let token = config.authentication.token {
+                        DetailRow(label: "Token", value: String(token.prefix(20)) + "...")
+                    } else if config.authentication.method == .oauth {
+                        ForEach(config.urls) { url in
+                            if let token = url.oauthToken {
+                                DetailRow(label: "\(url.name) OAuth", value: String(token.prefix(20)) + "...")
+                            }
+                        }
                     }
                     
                     HStack {
@@ -279,7 +334,7 @@ struct AddConfigurationView: View {
     @State private var name = ""
     @State private var internalUrl = ""
     @State private var externalUrl = ""
-    @State private var authType: AuthType = .token
+    @State private var authType: AuthMethod = .token
     @State private var internalToken = ""
     @State private var externalToken = ""
     @State private var useSameToken = true
@@ -321,8 +376,8 @@ struct AddConfigurationView: View {
                 
                 Section("Authentication Method") {
                     Picker("Type", selection: $authType) {
-                        Text("API Token").tag(AuthType.token)
-                        Text("Web Login (OAuth)").tag(AuthType.oauth)
+                        Text("API Token").tag(AuthMethod.token)
+                        Text("Web Login (OAuth)").tag(AuthMethod.oauth)
                     }
                     .pickerStyle(.segmented)
                 }
@@ -474,15 +529,29 @@ struct AddConfigurationView: View {
         showingWebAuth = false
         authStep = .none
         
-        let config = HAConfiguration(
-            name: name,
-            internalUrl: internalUrl,
-            externalUrl: externalUrl.isEmpty ? internalUrl : externalUrl,
-            internalToken: internalToken,
-            externalToken: externalToken,
-            authType: authType,
-            isActive: viewModel.configurations.isEmpty
-        )
+        let config: HAConfiguration
+        if authType == .token {
+            // Token-based auth
+            let finalExtUrl = externalUrl.isEmpty ? internalUrl : externalUrl
+            config = HAConfiguration(
+                name: name,
+                token: internalToken, // The model will use same token or separate ones
+                internalUrl: internalUrl,
+                externalUrl: finalExtUrl,
+                isActive: viewModel.configurations.isEmpty
+            )
+        } else {
+            // OAuth-based auth
+            let finalExtUrl = externalUrl.isEmpty ? internalUrl : externalUrl
+            config = HAConfiguration(
+                name: name,
+                internalUrl: internalUrl,
+                internalOAuthToken: internalToken,
+                externalUrl: finalExtUrl,
+                externalOAuthToken: externalToken,
+                isActive: viewModel.configurations.isEmpty
+            )
+        }
         
         print("📝 Calling viewModel.saveConfiguration...")
         viewModel.saveConfiguration(config)
@@ -506,7 +575,7 @@ struct EditConfigurationView: View {
     @State private var name = ""
     @State private var internalUrl = ""
     @State private var externalUrl = ""
-    @State private var authType: AuthType = .token
+    @State private var authType: AuthMethod = .token
     @State private var internalToken = ""
     @State private var externalToken = ""
     @State private var useSameToken = true
@@ -548,8 +617,8 @@ struct EditConfigurationView: View {
                 
                 Section("Authentication Method") {
                     Picker("Type", selection: $authType) {
-                        Text("API Token").tag(AuthType.token)
-                        Text("Web Login (OAuth)").tag(AuthType.oauth)
+                        Text("API Token").tag(AuthMethod.token)
+                        Text("Web Login (OAuth)").tag(AuthMethod.oauth)
                     }
                     .pickerStyle(.segmented)
                 }
@@ -692,13 +761,31 @@ struct EditConfigurationView: View {
     }
     
     private func saveConfiguration(internalToken: String, externalToken: String) {
-        var updated = config
-        updated.name = name
-        updated.internalUrl = internalUrl
-        updated.externalUrl = externalUrl.isEmpty ? internalUrl : externalUrl
-        updated.authType = authType
-        updated.internalToken = internalToken
-        updated.externalToken = externalToken
+        let finalExtUrl = externalUrl.isEmpty ? internalUrl : externalUrl
+        
+        let updated: HAConfiguration
+        if authType == .token {
+            updated = HAConfiguration(
+                id: config.id,
+                name: name,
+                token: internalToken,
+                internalUrl: internalUrl,
+                externalUrl: finalExtUrl,
+                isActive: config.isActive,
+                useInternalUrl: config.useInternalUrl
+            )
+        } else {
+            updated = HAConfiguration(
+                id: config.id,
+                name: name,
+                internalUrl: internalUrl,
+                internalOAuthToken: internalToken,
+                externalUrl: finalExtUrl,
+                externalOAuthToken: externalToken,
+                isActive: config.isActive,
+                useInternalUrl: config.useInternalUrl
+            )
+        }
         
         viewModel.saveConfiguration(updated)
         if updated.isActive {

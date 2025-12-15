@@ -87,9 +87,9 @@ struct PersistenceController {
                 
                 let config = HAConfiguration(
                     name: name,
+                    token: apiToken,
                     internalUrl: internalUrl,
                     externalUrl: externalUrl,
-                    token: apiToken,
                     isActive: isActive
                 )
                 

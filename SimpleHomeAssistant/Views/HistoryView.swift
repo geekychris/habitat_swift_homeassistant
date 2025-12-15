@@ -187,12 +187,110 @@ struct HistoryView: View {
     private func loadHistory() {
         isLoading = true
         
-        // Simulate loading history from Home Assistant
-        // In real implementation, this would call /api/history API
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-            historyItems = generateMockHistory()
-            isLoading = false
+        Task {
+            await loadRealHistory()
         }
+    }
+    
+    private func loadRealHistory() async {
+        guard let config = viewModel.activeConfiguration else {
+            isLoading = false
+            return
+        }
+        
+        // Calculate time range based on selected time frame
+        let calendar = Calendar.current
+        let now = Date()
+        let startTime: Date
+        
+        switch selectedTimeFrame {
+        case .hour:
+            startTime = calendar.date(byAdding: .hour, value: -1, to: now) ?? now
+        case .hours6:
+            startTime = calendar.date(byAdding: .hour, value: -6, to: now) ?? now
+        case .today:
+            startTime = calendar.startOfDay(for: now)
+        case .yesterday:
+            let yesterday = calendar.date(byAdding: .day, value: -1, to: now) ?? now
+            startTime = calendar.startOfDay(for: yesterday)
+        case .week:
+            startTime = calendar.date(byAdding: .day, value: -7, to: now) ?? now
+        }
+        
+        do {
+            let api = HomeAssistantAPI()
+            api.setConfiguration(config)
+            
+            print("📜 Fetching history from \(startTime) to \(now)")
+            let historyData = try await api.fetchHistory(startTime: startTime, endTime: now)
+            
+            // Convert to HistoryItem format
+            var items: [HistoryItem] = []
+            
+            for (entityId, states) in historyData {
+                // Find the entity to get friendly name
+                let entity = viewModel.entities.first(where: { $0.entityId == entityId })
+                let friendlyName = entity?.friendlyName ?? entityId
+                let domain = entityId.components(separatedBy: ".").first ?? ""
+                
+                // Create history items for state transitions
+                for i in 0..<(states.count - 1) {
+                    let oldState = states[i]
+                    let newState = states[i + 1]
+                    
+                    // Only show if state actually changed
+                    if oldState.state != newState.state {
+                        items.append(HistoryItem(
+                            id: "\(entityId)_\(newState.lastChanged.timeIntervalSince1970)",
+                            entityId: entityId,
+                            entityName: friendlyName,
+                            oldState: oldState.state,
+                            newState: newState.state,
+                            timestamp: newState.lastChanged,
+                            domain: domain,
+                            attributes: extractRelevantAttributes(from: newState.attributes, domain: domain)
+                        ))
+                    }
+                }
+            }
+            
+            // Sort by timestamp (most recent first)
+            items.sort { $0.timestamp > $1.timestamp }
+            
+            await MainActor.run {
+                historyItems = items
+                isLoading = false
+            }
+            
+            print("✅ Loaded \(items.count) history items")
+            
+        } catch {
+            print("❌ Failed to load history: \(error)")
+            await MainActor.run {
+                // Fall back to mock data if real API fails
+                historyItems = generateMockHistory()
+                isLoading = false
+            }
+        }
+    }
+    
+    private func extractRelevantAttributes(from attributes: [String: AnyCodable]?, domain: String) -> String? {
+        guard let attributes = attributes else { return nil }
+        
+        switch domain {
+        case "light":
+            if let brightness = attributes["brightness"]?.value as? Int {
+                return "brightness: \(Int(Double(brightness) / 255.0 * 100))%"
+            }
+        case "climate":
+            if let temp = attributes["temperature"]?.value as? Double {
+                return "temp: \(Int(temp))°"
+            }
+        default:
+            break
+        }
+        
+        return nil
     }
     
     private func generateMockHistory() -> [HistoryItem] {

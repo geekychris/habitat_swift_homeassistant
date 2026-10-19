@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/logo.png" alt="Habitat Swift Homeassistant logo" width="180">
+</p>
+
 # HAbitat - iOS Home Assistant Client
 
 <div align="center">
